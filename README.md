@@ -6,9 +6,6 @@ Led Matrix Clock 2024
 
 This project is using the ESP32 MH-ET Live MiniKit board.
 
-Install the [esp32 by Espressif Systems, 3.0.5](https://github.com/espressif/arduino-esp32) in the Board Manager of Arduino IDE.
-Then choose the "MH ET LIVE ESP32MiniKit" board in the Tools menu.
-
 See [here](https://doc.riot-os.org/group__boards__esp32__mh-et-live-minikit.html) for the pin out of the board.
 
 
@@ -29,7 +26,32 @@ The hardware is a customized LED display with 3mm blue LEDs. The following diagr
         Q1                  Q2                Q3
 
 ```
-  
+
+
+## Schematic
+
+![Schematic](schematic/schematic.png)
+
+
+## Firmware
+
+Install the [esp32 by Espressif Systems, 3.0.5](https://github.com/espressif/arduino-esp32) in the Board Manager of Arduino IDE.
+Then choose the "MH ET LIVE ESP32MiniKit" board in the Tools menu.
+
+Fill in the WiFi credentials in the `config.h` file.
+
+The `TIME_SERVER` constant is a Web service that returns the current time in the ISO format `YYYY-MM-DDTHH:MM:SS.uuuuuuuuu+ZZ:ZZ`.
+
+
+## 3D Printed Case
+
+The case is designed in Autodesk Fusion and printed with a 3D printer.
+See [stl](stl) folder for the STL files.
+
+
+## Assembly
+
+See [assembly](assembly) folder for the assembly instructions.
 
 ## Reference
 
