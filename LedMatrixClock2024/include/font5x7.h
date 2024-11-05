@@ -5,6 +5,7 @@
 
 #define DIGIT_SPACE 10
 #define DIGIT_E 11
+#define DIGIT_DASH 12
 
 const uint8_t FONT5x7[] = {
     // 0

@@ -12,14 +12,13 @@ const char* password = WIFI_PASSWORD;
 #define write_buf_3bytes(x, v) (buf[x*3] = (v >> 16) & 0xff, buf[x*3 + 1] = (v >> 8) & 0xff, buf[x*3 + 2] = v & 0xff)
 
 unsigned long lastSyncMillis = 0;  
-const long interval = 24 * 60 * 60 * 1000;  // 24 hours in milliseconds
-
+const long interval = 24 * 60 * 60 * 1000;  // sync time every 24 hours
 
 // buf for display
 uint8_t buf[21] = {0};
 
 /*******************************************************************************
- * 74HC595
+ * 74HC595 control
  */
 
 #define DATA_PIN 22
@@ -29,11 +28,14 @@ uint8_t buf[21] = {0};
 // Send 4 bytes to SN74HC595
 void send_data_sn74hc595(uint32_t data) {
   digitalWrite(LATCH_PIN, LOW);
+  
+  // since the row register is the furthest, we need to send the data in reverse order
   for (int i = 31; i >= 0; i--) {
     digitalWrite(CLOCK_PIN, LOW);
     digitalWrite(DATA_PIN, (data & (1 << i)) ? HIGH : LOW);
     digitalWrite(CLOCK_PIN, HIGH);
   }
+
   digitalWrite(LATCH_PIN, HIGH);
 }
 
@@ -102,6 +104,9 @@ int lastMillisec = 0;
 unsigned lastCalcMillis = 0;
 
 
+/*******************************************************************************
+ * Display control
+ */
 void show_digit(int digit, int pos) {
   uint32_t offset, v, mask, new_v, buf_v;
 
@@ -144,6 +149,46 @@ void show_colon(bool show) {
   }
 }
 
+void show_clock(int hour, int minute, int millisec) {
+    int digit = 0;
+
+    digit = minute % 10;
+    show_digit(digit, 0);
+    
+    digit = minute / 10;
+    show_digit(digit, 1);
+
+    digit = hour % 10;
+    show_digit(digit, 2);
+
+    digit = hour / 10;
+    if (digit == 0) {
+      show_digit(DIGIT_SPACE, 3);
+    } else {
+      show_digit(digit, 3);
+    }
+    
+    if (millisec > 500) {
+      show_colon(true);
+    } else {
+      show_colon(false);
+    }
+}
+
+void show_error(int errcode) {
+  show_digit(errcode % 10, 0);
+  show_digit((errcode / 10) % 10, 1);
+  show_digit(DIGIT_DASH, 2);
+  show_digit(DIGIT_E, 3);
+}
+
+void show_init() {
+  show_digit(DIGIT_DASH, 0);
+  show_digit(DIGIT_DASH, 1);
+  show_digit(DIGIT_DASH, 2);
+  show_digit(DIGIT_DASH, 3);
+}
+
 // for debug purpose
 void print_buf() {
   uint32_t buf_v;
@@ -162,11 +207,12 @@ void print_buf() {
 
 void loop() {
   unsigned long currentMillis = millis();
+  
 
   if (currentMillis - lastSyncMillis >= interval || lastSyncMillis == 0) {
     Serial.println("Syncing local time...");
-
-    // show_sync(CRGB::Yellow);
+    
+    show_init();
   
     // sync time with server
     if (WiFi.status() == WL_CONNECTED) {
@@ -197,10 +243,11 @@ void loop() {
         lastCalcMillis = millis();
       } else {
         // otherwise, wait for 10 seconds before retrying
-        // show_sync(CRGB::Red);
+        show_init();
         Serial.println("Failed to sync local time, server response:");
         Serial.println(httpCode);
         Serial.println("retrying in 10 seconds...");
+        show_error(2);
         delay(10000);
       }
 
@@ -209,6 +256,7 @@ void loop() {
       // if wifi is not connected, wait for 10 seconds before retrying
       // show_wifi(CRGB::Red);
       Serial.println("WIFI not connected, retrying in 10 seconds...");
+      show_error(1);
       delay(10000);
     }
   }
@@ -245,37 +293,10 @@ void loop() {
   // update state counter
   lastCalcMillis = currentMillis;
 
-
   // only update display when millisec changes
   if (lastMillisec >= 500 && millisec < 500 || lastMillisec < 500 && millisec >= 500) {
     // show time
-    int digit = 0;
-    int i;
-
-    digit = minute % 10;
-    show_digit(digit, 0);
-    
-    digit = minute / 10;
-    show_digit(digit, 1);
-
-    digit = hour % 10;
-    show_digit(digit, 2);
-
-    digit = hour / 10;
-    if (digit == 0) {
-      show_digit(DIGIT_SPACE, 3);
-    } else {
-      show_digit(digit, 3);
-    }
-    
-    if (millisec > 500) {
-      show_colon(true);
-    } else {
-      show_colon(false);
-    }
-    
-    Serial.printf("Time: %02d:%02d:%02d.%03d\n", hour, minute, second, millisec);
-    print_buf();
+    show_clock(hour, minute, millisec);
   }
   
   delay(100);
