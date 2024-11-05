@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include "config.h"
-#include "font5x7.h"
+#include "include/config.h"
+#include "include/font5x7.h"
 
 
 const char* ssid = WIFI_SSID;
@@ -14,6 +14,10 @@ const char* password = WIFI_PASSWORD;
 unsigned long lastSyncMillis = 0;  
 const long interval = 24 * 60 * 60 * 1000;  // 24 hours in milliseconds
 
+
+// buf for display
+uint8_t buf[21] = {0};
+
 /*******************************************************************************
  * 74HC595
  */
@@ -25,7 +29,7 @@ const long interval = 24 * 60 * 60 * 1000;  // 24 hours in milliseconds
 // Send 4 bytes to SN74HC595
 void send_data_sn74hc595(uint32_t data) {
   digitalWrite(LATCH_PIN, LOW);
-  for (int i = 0; i < 32; i++) {
+  for (int i = 31; i >= 0; i--) {
     digitalWrite(CLOCK_PIN, LOW);
     digitalWrite(DATA_PIN, (data & (1 << i)) ? HIGH : LOW);
     digitalWrite(CLOCK_PIN, HIGH);
@@ -33,16 +37,26 @@ void send_data_sn74hc595(uint32_t data) {
   digitalWrite(LATCH_PIN, HIGH);
 }
 
+void send_line(int line) {
+  uint32_t data = buf[line * 3] << 16 | buf[line * 3 + 1] << 8 | buf[line * 3 + 2];
+  uint32_t pos = (~(1 << (line + 1)) << 24) & 0xff000000;
+  data = (~data & 0xffffff) | pos;
+  send_data_sn74hc595(data);
+}
+
 
 /*******************************************************************************
  * Timer
  */
 hw_timer_t *timer = NULL;
-volatile uint32_t counter = 0;
-
+volatile uint32_t lineno = 0;
 
 void ARDUINO_ISR_ATTR onTimer() {
-  // Serial.printf("Timer interrupt: %d\n", counter);
+  send_line(lineno);
+  lineno++;
+  if (lineno >= 7) {
+    lineno = 0;
+  }
 }
 
 void setup() {
@@ -53,7 +67,6 @@ void setup() {
   pinMode(DATA_PIN, OUTPUT);
   pinMode(LATCH_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
-  
 
   // start timer
   timer = timerBegin(1000000);
@@ -88,9 +101,6 @@ int lastMillisec = 0;
 
 unsigned lastCalcMillis = 0;
 
-
-
-uint8_t buf[21] = {0};
 
 void show_digit(int digit, int pos) {
   uint32_t offset, v, mask, new_v, buf_v;
